@@ -10,6 +10,7 @@ on:
 jobs:
   main:
     runs-on: ubuntu-latest
+
     env:
       SIGNING_ENABLED: "true"
       KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -18,11 +19,13 @@ jobs:
       GOOGLE_PLAY_JSON: ${{ secrets.GOOGLE_PLAY_JSON }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-java@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
@@ -32,6 +35,7 @@ jobs:
         with:
           ruby-version: "3.2"
           bundler-cache: true
+          working-directory: CI-MOBILE-EXAM/CIMOBILEEXAM
 
       - name: Restore keystore
         if: ${{ env.SIGNING_ENABLED == 'true' }}
@@ -45,12 +49,16 @@ jobs:
           PREV=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           echo "prev=$PREV" >> $GITHUB_OUTPUT
 
+      # 🔹 CAS TAG (v* ou rc*)
       - name: Build release + changelog + maybe deploy
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        working-directory: CI-MOBILE-EXAM/CIMOBILEEXAM
         run: bundle exec fastlane android ci_main_release from:${{ steps.prevtag.outputs.prev }}
 
+      # 🔹 CAS PUSH SIMPLE SUR main
       - name: Build release only (push main without tag)
         if: ${{ github.ref == 'refs/heads/main' }}
+        working-directory: CI-MOBILE-EXAM/CIMOBILEEXAM
         run: |
           bundle exec fastlane android unit_tests
           bundle exec fastlane android build_release
@@ -60,17 +68,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-release-aab
-          path: app/build/outputs/bundle/release/*.aab
+          path: CI-MOBILE-EXAM/CIMOBILEEXAM/app/build/outputs/bundle/release/*.aab
 
       - name: Upload mapping.txt
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: mapping
-          path: app/build/outputs/mapping/release/mapping.txt
+          path: CI-MOBILE-EXAM/CIMOBILEEXAM/app/build/outputs/mapping/release/mapping.txt
 
       - name: Upload changelog
         uses: actions/upload-artifact@v4
         with:
           name: changelog
-          path: fastlane/CHANGELOG.md
+          path: CI-MOBILE-EXAM/CIMOBILEEXAM/fastlane/CHANGELOG.md
