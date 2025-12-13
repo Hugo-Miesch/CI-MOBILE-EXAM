@@ -1,0 +1,83 @@
+default_platform(:android)
+
+platform :android do
+  desc "1) Tests unitaires"
+  lane :unit_tests do
+    gradle(task: "test")
+  end
+
+  desc "2) Build Debug APK"
+  lane :build_debug do
+    gradle(task: "assembleDebug")
+  end
+
+  desc "3) Build Release (AAB) + mapping"
+  lane :build_release do
+    gradle(task: "bundleRelease")
+  end
+
+  desc "4) Génère changelog automatiquement (git log)"
+  lane :generate_changelog do |options|
+    tag_from = options[:from] || ""
+    range = tag_from.empty? ? "HEAD~50..HEAD" : "#{tag_from}..HEAD"
+
+    changelog = sh("git log #{range} --pretty=format:'- %s (%h)'").strip
+    changelog = "- Initial release" if changelog.empty?
+
+    File.write("fastlane/CHANGELOG.md", changelog + "\n")
+    UI.message("Changelog generated in fastlane/CHANGELOG.md")
+  end
+
+  desc "5) Deploy sur Testapp.io (APK debug)"
+  lane :deploy_testapp do
+    apk_path = "app/build/outputs/apk/debug/app-debug.apk"
+    UI.user_error!("APK debug introuvable: #{apk_path}") unless File.exist?(apk_path)
+
+    sh("curl -H 'Authorization: Bearer #{ENV['TESTAPP_TOKEN']}' " \
+       "-F 'app_id=#{ENV['TESTAPP_APP_ID']}' " \
+       "-F 'file=@#{apk_path}' " \
+       "https://api.testapp.io/upload")
+  end
+
+  desc "6) Deploy Google Play Internal Track (AAB signé)"
+  lane :deploy_play_internal do
+    aab_path = "app/build/outputs/bundle/release/app-release.aab"
+    UI.user_error!("AAB introuvable: #{aab_path}") unless File.exist?(aab_path)
+
+    json_key_content = ENV["GOOGLE_PLAY_JSON"]
+    UI.user_error!("GOOGLE_PLAY_JSON manquant") if json_key_content.to_s.strip.empty?
+
+    File.write("fastlane/google-play.json", json_key_content)
+
+    supply(
+      aab: aab_path,
+      json_key: "fastlane/google-play.json",
+      track: "internal",
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: false,
+      changelog: "fastlane/CHANGELOG.md"
+    )
+  end
+
+  desc "Pipeline develop (tests + debug + testapp)"
+  lane :ci_develop do
+    unit_tests
+    build_debug
+    deploy_testapp
+  end
+
+  desc "Pipeline main (tests + release + changelog + play)"
+  lane :ci_main_release do |options|
+    generate_changelog(from: options[:from])
+    unit_tests
+    build_release
+    deploy_play_internal
+  end
+
+  desc "Nightly (tests + debug, sans déployer)"
+  lane :ci_nightly do
+    unit_tests
+    build_debug
+  end
+end
