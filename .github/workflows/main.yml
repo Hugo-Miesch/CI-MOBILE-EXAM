@@ -35,7 +35,7 @@ jobs:
         with:
           ruby-version: "3.2"
           bundler-cache: true
-          working-directory: CI-MOBILE-EXAM/CIMOBILEEXAM
+          working-directory: CIMOBILEEXAM
 
       - name: Restore keystore
         if: ${{ env.SIGNING_ENABLED == 'true' }}
@@ -49,16 +49,14 @@ jobs:
           PREV=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           echo "prev=$PREV" >> $GITHUB_OUTPUT
 
-      # 🔹 CAS TAG (v* ou rc*)
       - name: Build release + changelog + maybe deploy
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
-        working-directory: CI-MOBILE-EXAM/CIMOBILEEXAM
+        working-directory: CIMOBILEEXAM
         run: bundle exec fastlane android ci_main_release from:${{ steps.prevtag.outputs.prev }}
 
-      # 🔹 CAS PUSH SIMPLE SUR main
       - name: Build release only (push main without tag)
         if: ${{ github.ref == 'refs/heads/main' }}
-        working-directory: CI-MOBILE-EXAM/CIMOBILEEXAM
+        working-directory: CIMOBILEEXAM
         run: |
           bundle exec fastlane android unit_tests
           bundle exec fastlane android build_release
@@ -68,17 +66,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-release-aab
-          path: CI-MOBILE-EXAM/CIMOBILEEXAM/app/build/outputs/bundle/release/*.aab
+          path: CIMOBILEEXAM/app/build/outputs/bundle/release/*.aab
 
       - name: Upload mapping.txt
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: mapping
-          path: CI-MOBILE-EXAM/CIMOBILEEXAM/app/build/outputs/mapping/release/mapping.txt
+          path: CIMOBILEEXAM/app/build/outputs/mapping/release/mapping.txt
 
       - name: Upload changelog
         uses: actions/upload-artifact@v4
         with:
           name: changelog
-          path: CI-MOBILE-EXAM/CIMOBILEEXAM/fastlane/CHANGELOG.md
+          path: CIMOBILEEXAM/fastlane/CHANGELOG.md
