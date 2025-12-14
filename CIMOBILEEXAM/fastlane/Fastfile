@@ -41,9 +41,9 @@ platform :android do
 
   desc "5) Deploy sur Testapp.io (APK debug)"
   lane :deploy_testapp do
-    apk_path = "app/build/outputs/apk/debug/app-debug.apk"
-    UI.user_error!("APK debug introuvable: #{apk_path}") unless File.exist?(apk_path)
+    apk_path = lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH]
 
+    UI.user_error!("APK debug introuvable") unless apk_path && File.exist?(apk_path)
     UI.user_error!("TESTAPP_TOKEN manquant") if ENV["TESTAPP_TOKEN"].to_s.strip.empty?
     UI.user_error!("TESTAPP_APP_ID manquant") if ENV["TESTAPP_APP_ID"].to_s.strip.empty?
 
