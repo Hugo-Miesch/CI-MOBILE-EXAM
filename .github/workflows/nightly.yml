@@ -10,12 +10,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Make gradlew executable
         run: chmod +x CIMOBILEEXAM/gradlew
 
-
-      - uses: actions/setup-java@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
@@ -25,13 +27,15 @@ jobs:
         with:
           ruby-version: "3.2"
           bundler-cache: true
+          working-directory: CIMOBILEEXAM
 
-      - name: Nightly fastlane
+      - name: Run Nightly Fastlane
+        working-directory: CIMOBILEEXAM
         run: bundle exec fastlane android ci_nightly
 
       - name: Upload Debug APK (nightly)
-        if: ${{ success() }} 
+        if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:
           name: nightly-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: CIMOBILEEXAM/app/build/outputs/apk/debug/*.apk
