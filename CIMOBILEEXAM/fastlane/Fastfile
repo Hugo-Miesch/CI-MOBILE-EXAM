@@ -19,7 +19,12 @@ platform :android do
   desc "4) Génère changelog automatiquement (git log)"
   lane :generate_changelog do |options|
     tag_from = options[:from] || ""
-    range = tag_from.empty? ? "HEAD~50..HEAD" : "#{tag_from}..HEAD"
+    range =
+      if tag_from && !tag_from.empty?
+        "#{tag_from}..HEAD"
+      else
+        "--max-count=50"
+      end
 
     changelog = sh("git log #{range} --pretty=format:'- %s (%h)'").strip
     changelog = "- Initial release" if changelog.empty?
