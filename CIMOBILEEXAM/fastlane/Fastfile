@@ -1,6 +1,7 @@
 default_platform(:android)
 
 platform :android do
+
   desc "1) Tests unitaires"
   lane :unit_tests do
     gradle(task: "test")
@@ -18,7 +19,10 @@ platform :android do
 
   desc "4) Génère changelog automatiquement (git log)"
   lane :generate_changelog do |options|
+    require "fileutils"
+
     tag_from = options[:from] || ""
+
     range =
       if tag_from && !tag_from.empty?
         "#{tag_from}..HEAD"
@@ -29,7 +33,9 @@ platform :android do
     changelog = sh("git log #{range} --pretty=format:'- %s (%h)'").strip
     changelog = "- Initial release" if changelog.empty?
 
+    FileUtils.mkdir_p("fastlane")
     File.write("fastlane/CHANGELOG.md", changelog + "\n")
+
     UI.message("Changelog generated in fastlane/CHANGELOG.md")
   end
 
@@ -38,20 +44,28 @@ platform :android do
     apk_path = "app/build/outputs/apk/debug/app-debug.apk"
     UI.user_error!("APK debug introuvable: #{apk_path}") unless File.exist?(apk_path)
 
-    sh("curl -H 'Authorization: Bearer #{ENV['TESTAPP_TOKEN']}' " \
-       "-F 'app_id=#{ENV['TESTAPP_APP_ID']}' " \
-       "-F 'file=@#{apk_path}' " \
-       "https://api.testapp.io/upload")
+    UI.user_error!("TESTAPP_TOKEN manquant") if ENV["TESTAPP_TOKEN"].to_s.strip.empty?
+    UI.user_error!("TESTAPP_APP_ID manquant") if ENV["TESTAPP_APP_ID"].to_s.strip.empty?
+
+    sh(
+      "curl -H 'Authorization: Bearer #{ENV['TESTAPP_TOKEN']}' " \
+      "-F 'app_id=#{ENV['TESTAPP_APP_ID']}' " \
+      "-F 'file=@#{apk_path}' " \
+      "https://api.testapp.io/upload"
+    )
   end
 
   desc "6) Deploy Google Play Internal Track (AAB signé)"
   lane :deploy_play_internal do
+    require "fileutils"
+
     aab_path = "app/build/outputs/bundle/release/app-release.aab"
     UI.user_error!("AAB introuvable: #{aab_path}") unless File.exist?(aab_path)
 
     json_key_content = ENV["GOOGLE_PLAY_JSON"]
     UI.user_error!("GOOGLE_PLAY_JSON manquant") if json_key_content.to_s.strip.empty?
 
+    FileUtils.mkdir_p("fastlane")
     File.write("fastlane/google-play.json", json_key_content)
 
     supply(
@@ -74,9 +88,9 @@ platform :android do
 
   desc "Pipeline main (tests + release + changelog + play)"
   lane :ci_main_release do |options|
-    generate_changelog(from: options[:from])
     unit_tests
     build_release
+    generate_changelog(from: options[:from])
     deploy_play_internal
   end
 
